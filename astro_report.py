@@ -88,15 +88,26 @@ def parse_natal_file(path: Path) -> NatalData:
             raise ValueError(f"Falta el campo '{label}' en {path}")
         return match.group(1).strip()
 
+    def extract_opt(label: str):
+        match = re.search(rf"- {re.escape(label)}:\s*(.+)", text)
+        return match.group(1).strip() if match else None
+
     name = extract("Nombre")
     birth_date = extract("Fecha de nacimiento")
     birth_time = extract("Hora de nacimiento")
     birth_place = extract("Lugar de nacimiento")
     timezone_name = extract("Zona horaria de nacimiento")
-    key = birth_place.lower()
-    if key not in DEFAULT_COORDS:
-        raise ValueError(f"No hay coordenadas para '{birth_place}'")
-    latitude, longitude = DEFAULT_COORDS[key]
+
+    lat_str = extract_opt("Latitud")
+    lon_str = extract_opt("Longitud")
+    if lat_str and lon_str:
+        latitude, longitude = float(lat_str), float(lon_str)
+    else:
+        key = birth_place.lower()
+        if key not in DEFAULT_COORDS:
+            raise ValueError(f"No hay coordenadas para '{birth_place}'")
+        latitude, longitude = DEFAULT_COORDS[key]
+
     return NatalData(name, birth_date, birth_time, birth_place, timezone_name, latitude, longitude)
 
 
