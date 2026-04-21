@@ -368,79 +368,63 @@ def render_report(natal: NatalData, natal_chart, current_chart, transits, natal_
     phase_angle = moon_phase_angle(now_local)
     phase_name = get_moon_phase_name(phase_angle)
     phase_pct = round(phase_angle / 360 * 100, 1)
-    lines = []
+    L = []
 
-    lines.append("# Carta natal y transitos")
-    lines.append("")
+    L.append(f"HERMES | {now_local.strftime('%Y-%m-%d %H:%M')} | {natal.name}")
+    L.append(f"Luna: {phase_name} {phase_pct}% | {format_longitude(current_chart['positions']['Luna']['lon'])}")
+    L.append("")
 
-    lines.append("## Datos natales")
-    lines.append(f"- Nombre: {natal.name}")
-    lines.append(f"- Nacimiento: {natal.birth_date} {natal.birth_time} ({natal.timezone_name})")
-    lines.append(f"- Lugar: {natal.birth_place} | Coords: {natal.latitude:.3f}, {natal.longitude:.3f}")
-    lines.append("")
-
-    lines.append("## Carta natal (planetas)")
+    L.append("=CARTA NATAL=")
+    asc = format_longitude(natal_chart['angles']['Ascendente'])
+    mc = format_longitude(natal_chart['angles']['Medio Cielo'])
+    L.append(f"ASC {asc} | MC {mc}")
     for name, data in natal_chart["positions"].items():
-        retro = " Rx" if data["retrogrado"] else ""
-        lines.append(f"- {name}: {format_longitude(data['lon'])}{retro} | Casa {data['house']} | {data['dignidad']}")
-    lines.append(f"- Ascendente: {format_longitude(natal_chart['angles']['Ascendente'])}")
-    lines.append(f"- Medio Cielo: {format_longitude(natal_chart['angles']['Medio Cielo'])}")
-    lines.append("")
+        r = "Rx" if data["retrogrado"] else "  "
+        L.append(f"{name:<12} {format_longitude(data['lon'])} {r} C{data['house']:02d} {data['dignidad']}")
 
-    lines.append("## Casas natales (cuspides)")
+    L.append("")
+    L.append("=CASAS=")
+    row = []
     for i in range(1, 13):
-        lines.append(f"- Casa {i:2d}: {format_longitude(natal_chart['cusps'][i])}")
-    lines.append("")
+        row.append(f"C{i:02d}:{format_longitude(natal_chart['cusps'][i])}")
+        if len(row) == 2:
+            L.append("  ".join(row))
+            row = []
 
-    lines.append("## Aspectos natales entre planetas")
-    if natal_aspects:
-        for a in natal_aspects[:15]:
-            lines.append(f"- {a['planeta_a']} {a['aspect']} {a['planeta_b']} | orbe {a['orb']:.2f}°")
-    else:
-        lines.append("- Ninguno dentro del orbe configurado.")
-    lines.append("")
+    L.append("")
+    L.append("=ASPECTOS NATALES=")
+    for a in natal_aspects[:8]:
+        L.append(f"{a['planeta_a']} {a['aspect']} {a['planeta_b']} {a['orb']:.1f}°")
 
-    lines.append("## Momento presente")
-    lines.append(f"- Fecha/hora local: {now_local.strftime('%Y-%m-%d %H:%M:%S')} ({natal.timezone_name})")
-    lines.append(f"- Luna: {phase_name} | {phase_pct}% del ciclo | {format_longitude(current_chart['positions']['Luna']['lon'])}")
-    lines.append("")
-    lines.append("### Planetas en transito ahora")
+    L.append("")
+    L.append("=TRANSITO AHORA=")
     for name, data in current_chart["positions"].items():
-        retro = " Rx" if data["retrogrado"] else ""
-        lines.append(f"- {name}: {format_longitude(data['lon'])}{retro} | vel {data['speed']:.3f}°/dia")
-    lines.append("")
+        r = "Rx" if data["retrogrado"] else "  "
+        L.append(f"{name:<12} {format_longitude(data['lon'])} {r} {data['speed']:+.3f}°/d")
 
-    lines.append("## Aspectos entre planetas en transito")
     if transit_aspects:
-        for a in transit_aspects[:10]:
-            lines.append(f"- {a['planeta_a']} {a['aspect']} {a['planeta_b']} | orbe {a['orb']:.2f}°")
-    else:
-        lines.append("- Ninguno dentro del orbe configurado.")
-    lines.append("")
+        L.append("")
+        L.append("=ENTRE TRANSITOS=")
+        for a in transit_aspects[:5]:
+            L.append(f"{a['planeta_a']} {a['aspect']} {a['planeta_b']} {a['orb']:.1f}°")
 
-    lines.append("## Transitos a carta natal")
-    if not transits:
-        lines.append("- No se encontraron aspectos dentro del orbe configurado.")
-    else:
-        for item in transits[:25]:
-            retro = " Rx" if item["retrogrado"] else ""
-            aplic = "aplicando" if item["aplicando"] else "separando"
-            timing = f" | exacto en ~{item['horas_exacto']}h" if item["horas_exacto"] is not None else ""
-            lines.append(
-                f"- {item['transit']}{retro} {item['aspect']} natal {item['target']} | orbe {item['orb']:.2f}° | {aplic}{timing}"
-            )
-    lines.append("")
+    L.append("")
+    L.append("=TRANSITOS A NATAL=")
+    for item in transits[:15]:
+        r = "Rx" if item["retrogrado"] else ""
+        ap = "apl" if item["aplicando"] else "sep"
+        t = f"~{item['horas_exacto']:.0f}h" if item["horas_exacto"] is not None else ""
+        L.append(f"{item['transit']}{r} {item['aspect']} {item['target']} {item['orb']:.1f}° {ap} {t}")
 
-    lines.append("## Eventos proximos (3 dias)")
-    if not upcoming_events:
-        lines.append("- No hay eventos lunares ni ingresos en los proximos 3 dias.")
-    else:
+    if upcoming_events:
+        L.append("")
+        L.append("=PROXIMOS 3 DIAS=")
         for event_dt, label in upcoming_events:
             delta = event_dt - now_local
-            total_hours = max(0, int(round(delta.total_seconds() / 3600)))
-            lines.append(f"- {label} | {event_dt.strftime('%Y-%m-%d %H:%M')} ({natal.timezone_name}) | en ~{total_hours}h")
+            hrs = max(0, int(round(delta.total_seconds() / 3600)))
+            L.append(f"{label} | {event_dt.strftime('%m-%d %H:%M')} | ~{hrs}h")
 
-    return "\n".join(lines) + "\n"
+    return "\n".join(L) + "\n"
 
 
 def main():
