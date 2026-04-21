@@ -11,6 +11,10 @@ on:
         options:
           - report
           - poll
+      natal_file:
+        description: 'Archivo de carta natal (dejar vacio para Victor)'
+        required: false
+        default: ''
 
   schedule:
     - cron: "0 11,18,22 * * *"
@@ -32,11 +36,19 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "mode=${{ inputs.mode }}" >> $GITHUB_OUTPUT
+            echo "natal=${{ inputs.natal_file }}" >> $GITHUB_OUTPUT
           else
             echo "mode=report" >> $GITHUB_OUTPUT
+            echo "natal=" >> $GITHUB_OUTPUT
           fi
       - name: Ejecutar bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python hermes.py ${{ steps.mode.outputs.mode }}
+        run: |
+          NATAL="${{ steps.mode.outputs.natal }}"
+          if [ -n "$NATAL" ]; then
+            python run_and_send_report.py "$NATAL"
+          else
+            python hermes.py ${{ steps.mode.outputs.mode }}
+          fi
