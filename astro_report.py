@@ -13,6 +13,7 @@ WORKDIR = Path(__file__).resolve().parent
 NATAL_FILE = WORKDIR / "carta_natal.md"
 DEFAULT_COORDS = {
     "general san martin, buenos aires, argentina": (-34.576, -58.535),
+    "capital federal, buenos aires, argentina": (-34.604, -58.382),
 }
 ZODIAC_SIGNS = [
     "Aries", "Tauro", "Geminis", "Cancer", "Leo", "Virgo",
@@ -428,7 +429,8 @@ def render_report(natal: NatalData, natal_chart, current_chart, transits, natal_
 
 
 def main():
-    natal = parse_natal_file(NATAL_FILE)
+    natal_file = Path(sys.argv[1]) if len(sys.argv) > 1 else NATAL_FILE
+    natal = parse_natal_file(natal_file)
     natal_chart = calc_natal_chart(natal)
     now_local = datetime.now(ZoneInfo(natal.timezone_name))
     current_chart = calc_current_chart(now_local)
